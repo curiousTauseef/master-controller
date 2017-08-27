@@ -7,6 +7,7 @@ Requires:
 * SBC GPIO Library (Future Capability)
 
 ## Master
+The master is responsible for controlling all clients.  It can also run it's own tasks.
 
 ### Master Control Usage:
 
