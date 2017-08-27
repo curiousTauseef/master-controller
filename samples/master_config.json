@@ -1,0 +1,33 @@
+{
+    "CONFIG" : "MASTER",
+    "PORT" : 10005,
+    "PING TIMER" : 60,
+    "START OPTION" : "AUTO",
+    "CLIENTS" : [
+     {
+      "ID" : 5,
+      "IP" : "127.0.0.1",
+      "PORT" : 10006
+     }
+    ],
+    "TASKS" : [
+      {
+      "TYPE" : "TASK",
+      "DELTA TIME FROM START" : 1.5,
+      "TIME UNITS" : "SECONDS",
+      "COMMAND" : "/bin/vikings -input eggs.txt -output \"spam spam.txt\" -cmd \"echo '$MONEY'\""
+      },
+      {
+      "TYPE" : "TASK",
+      "DELTA TIME FROM START" : 2.23,
+      "TIME UNITS" : "SECONDS",
+      "COMMAND" : "vlc red_nosed_reindeer.mp3"
+      },
+      {
+      "TYPE" : "STOP",
+      "DELTA TIME FROM START" : 3.23,
+      "TIME UNITS" : "SECONDS",
+      "COMMAND" : ""
+      }
+    ]
+}

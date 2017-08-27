@@ -1,0 +1,25 @@
+{
+    "CONFIG" : "THING_1",
+    "ID" : 5,
+    "PORT" : 10006,
+    "TASKS" : [
+      {
+      "TYPE" : "TASK",
+      "DELTA TIME FROM START" : 5.5,
+      "TIME UNITS" : "SECONDS",
+      "COMMAND" : "testvid.mp4"
+      },
+      {
+      "TYPE" : "TASK",
+      "DELTA TIME FROM START" : 10.23,
+      "TIME UNITS" : "SECONDS",
+      "COMMAND" : "some_audio.mp3"
+      },
+      {
+      "TYPE" : "STOP",
+      "DELTA TIME FROM START" : 15.23,
+      "TIME UNITS" : "SECONDS",
+      "COMMAND" : ""
+      }
+    ]
+}
