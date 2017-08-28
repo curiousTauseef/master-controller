@@ -79,8 +79,9 @@ Interval in seconds to ensure client connected
 
 #### Start Option
 How the tasks should be started: Auto/Web/GPIO
-Web capability hasn't been implemented
-GPIO capability hasn't been implemented
+Auto - Once all clients connect, all tasks are started
+Web - Web control on port 8080 of the master controller
+GPIO - hasn't been implemented
 
 #### Client List JSON
 The client list contains a dictionary of the ID, IP Address, and the Port to communicate with
