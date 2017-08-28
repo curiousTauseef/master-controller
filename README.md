@@ -78,7 +78,8 @@ Port to listen to responses on
 Interval in seconds to ensure client connected
 
 #### Start Option
-How the tasks should be started: Auto/GPIO
+How the tasks should be started: Auto/Web/GPIO
+Web capability hasn't been implemented
 GPIO capability hasn't been implemented
 
 #### Client List JSON
@@ -153,6 +154,7 @@ The last item in the list needs to be a stop type.
 
 #### Type
 Type of task: Task/Stop
+The Stop task tells the code this is the last item in the list.  For the Master Controller, the stop task should always end after the last client command.
 
 #### Delta Time From Start
 Time after start where task should be run

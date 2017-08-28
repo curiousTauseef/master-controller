@@ -6,7 +6,9 @@
 # MODULE IMPORTS
 import argparse
 import json
+import http.server
 import socketserver
+import urllib.parse
 import socket
 import threading
 import datetime
@@ -19,6 +21,7 @@ import tasker
 
 # CONSTANTS
 ANYHOST = ""
+WEBPORT = 8080
 NAME = "ESCAPE ROOM"
 FORMAT = '%(asctime)-15s %(levelname)-10s %(module)-12s %(message)s'
 
@@ -27,6 +30,8 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(NAME)
 logger.setLevel(logging.DEBUG)
 
+# GLOBALS
+sevent = threading.Event()
 
 # CLASSES
 class LoopingTimer:
@@ -56,6 +61,74 @@ class LoopingTimer:
     def cancel(self):
         self.timer.cancel()
 
+
+class WebControlHandler(http.server.SimpleHTTPRequestHandler):
+    # HAT TIP TO: https://codereview.stackexchange.com/questions/112222/web-server-to-switch-gpio-pin
+    # MODIFIED FOR PYTHON 3 AND FOR REMOVING GPIO
+
+    # OVERLOADED FUNCTION
+    def do_GET(self):
+
+        # PARSE THE URL
+        urlcomp = urllib.parse.urlparse(self.path) # split url in components
+        query = urllib.parse.parse_qs(urlcomp.query) # Get args as dictionary
+        # LOOK FOR QUERY INFO
+        try:
+            cmd = query['cmd']
+        except KeyError:
+            message = "<p>NO COMMANDS PROCESSED</p>"
+        else:
+            message = "<p></p>"
+            if cmd == ["start"]:
+                self.server.start_has_been_pushed = True
+                # ONLY RUN CALLBACK IF NO TASKS ARE RUNNING
+                if not self.server.tasks_running:
+                    self.server.run_callback()
+                    message = "<p>SCRIPT STARTED</p>"
+                else:
+                    message = "<p>SCRIPT IS ALREADY RUNNING</p>"
+            elif cmd == ["stop"]:
+                message = "<p>FEATURE NOT IMPLEMENTED</p>"
+            else:
+                message = "<p>UNKNOWN ACTION {}</p>".format(cmd.upper())
+        # Build links whatever the action was
+        message += """<p>
+                      <a href="/control.html?cmd=start">START EVERYTHING</a>
+                      </p><p>
+                      <a href="/control.html?cmd=stop">STOP EVERYTHING</a>
+                      </p>"""
+        self.send_response(200)
+        # Custom headers, if need be
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        # Custom body
+        self.wfile.write(str.encode(message))
+
+
+class WebControl(socketserver.TCPServer):
+
+    # WE KINDA WANT TO BE A DAEMON
+    daemon_threads = True
+    # FASTER BINDING
+    allow_reuse_address = True
+
+    def __init__(self, server_address, RequestHandlerClass, callback=None):
+        socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
+        self.callback = callback
+        self.start_has_been_pushed = False
+        self.tasks_running = False
+
+    def run_callback(self):
+        if self.callback:
+            self.callback()
+
+    def set_tasks_running(self, running):
+        self.tasks_running = running
+
+    def has_start_been_pushed(self):
+        return self.start_has_been_pushed
+
+
 class ControllerHandler(socketserver.BaseRequestHandler):
     """
     ControllerHandler - Class to handle receiving data from the clients
@@ -80,7 +153,7 @@ class ControllerHandler(socketserver.BaseRequestHandler):
             logger.info("PONG RECEIVED FROM: {0}".format(sender))
             self.server.set_client_connected(sender)
             # IF WE ARE ABLE TO AUTO START AND EVERYTHING IS CONNECTED
-            if self.server.get_start_auto and self.server.all_connected:
+            if self.server.get_start_auto() and self.server.all_connected:
                 self.server.start_all()
         else:
             logger.info(data.upper())
@@ -94,13 +167,14 @@ class Controller(socketserver.UDPServer):
     """
 
     # WE KINDA WANT TO BE A DAEMON
-    #daemon_threads = True
+    daemon_threads = True
     # FASTER BINDING
     allow_reuse_address = True
 
     # CLASS CONSTANTS
     START_AUTO = "AUTO"
     START_BUTTON = "GPIO"
+    START_WEB = "WEB"
 
     # STUFF FOR DETERMINING CONNECTION
     PING = str.encode("ping")
@@ -120,6 +194,8 @@ class Controller(socketserver.UDPServer):
         self.all_connected = False
         # VARIABLE TO LET US KNOW IF WE'VE STARTED
         self.started = False
+        # ARE WE DONE WITH TASKS
+        self.done_with_tasks = False
 
         # RUN THE STUFF TO ENHANCE THE DICTIONARY
         self._update_local_config()
@@ -132,6 +208,11 @@ class Controller(socketserver.UDPServer):
         self.looper = LoopingTimer(self.config["PING TIMER"], self.send_ping, True)
         self.looper.start()
 
+        # WEB CONTROL
+        self.webcontrol = WebControl((ANYHOST, WEBPORT), WebControlHandler, callback=self.start_all)
+        self.web_thread = threading.Thread(target=self.webcontrol.serve_forever)
+        self.web_thread.start()
+
     def kill(self):
         # THIS IS HERE TO KILL THE LOOPING TIMER
         self.looper.cancel()
@@ -141,6 +222,15 @@ class Controller(socketserver.UDPServer):
     # IF ONE WANTED TO USE THE CALLBACK TO ALSO STOP, A NEW COMMAND
     # WOULD HAVE TO BE ADDED TO SEND TO THE CLIENT
     # AND TELL THEM TO STOP
+
+    def get_tasks_completed(self):
+        return self.done_with_tasks
+
+    def reset(self):
+        # FUNCTION TO RESET THE CLIENT FOR ANOTHER GO
+        logger.info("RESET")
+        self.done_with_tasks = False
+        self.tasky = tasker.Tasker(self.config["TASKS"], debug=self.debug)
 
     def _update_local_config(self):
         # THIS FUNCTION ADDS A CONNECTED KEY TO THE DICTIONARY
@@ -163,6 +253,10 @@ class Controller(socketserver.UDPServer):
         if self.config["START OPTION"].upper() == self.START_AUTO:
             return True
 
+    def get_start_web(self):
+        if self.config["START OPTION"].upper() == self.START_WEB:
+            return True
+
     def _determine_all_clients_connected(self):
         # LOOP THROUGH AND UPDATE THE ALL CONNECTED BOOLEAN TO SEE IF WE HAVE ALL CLIENTS
         for client in self.config["CLIENTS"]:
@@ -175,14 +269,27 @@ class Controller(socketserver.UDPServer):
             self.socket.sendto(self.PING, client["ADDRESS"])
 
     def start_all(self):
+        # FIGURE OUT IF WE'VE RUN BEFORE AND IF SO, RESET
+        if self.get_tasks_completed():
+            self.reset()
         # FUNCTION TO START CLIENTS
         for client in self.config["CLIENTS"]:
             self.socket.sendto(self.START, client["ADDRESS"])
         self.started = True
+        self.webcontrol.set_tasks_running(self.started)
         # ONCE DONE WITH THE CLIENTS, START TASKY
         self.tasky.start()
 
-    # TODO: ADD CODE TO HANDLE LOGIC FOR STARTING TASKY
+    # THIS IS AN OVERLOADED FUNCTION
+    def service_actions(self):
+        # CHECK FOR TASKY RUNNING
+        # IF NOT, AUTO SHUTDOWN
+        if not self.tasky.is_running() and not self.done_with_tasks:
+            logger.info("TASKS COMPLETE")
+            self.started = False
+            self.webcontrol.set_tasks_running(self.started)
+            self.done_with_tasks = True
+            self.tasky.join()
 
 
 # FUNCTIONS
@@ -242,7 +349,7 @@ def main():
     try:
         controller.serve_forever()
 
-        while not client.get_tasks_completed():
+        while True:
             time.sleep(1)
 
         logger.info("SHUTTING DOWN CONTROLLER")

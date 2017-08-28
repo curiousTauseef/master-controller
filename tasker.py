@@ -15,7 +15,6 @@ import logging
 # LOGGER HANDLER
 NAME = "ESCAPE ROOM"
 logger = logging.getLogger(NAME)
-logger.setLevel(logging.DEBUG)
 
 # CLASS
 class Tasker(threading.Thread):
@@ -116,7 +115,7 @@ class Tasker(threading.Thread):
 # UNIT TEST
 if __name__ == "__main__":
 
-    FORMAT = '%(asctime)-15s %(levelname)-10s %(module)-25s %(message)s'
+    FORMAT = '%(asctime)-15s %(levelname)-10s %(module)-12s %(message)s'
     logging.basicConfig(format=FORMAT)
 
     logger.info("UNIT TEST")

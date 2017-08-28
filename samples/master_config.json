@@ -2,7 +2,7 @@
     "CONFIG" : "MASTER",
     "PORT" : 10005,
     "PING TIMER" : 60,
-    "START OPTION" : "AUTO",
+    "START OPTION" : "WEB",
     "CLIENTS" : [
      {
       "ID" : 5,
@@ -25,7 +25,7 @@
       },
       {
       "TYPE" : "STOP",
-      "DELTA TIME FROM START" : 3.23,
+      "DELTA TIME FROM START" : 12.0,
       "TIME UNITS" : "SECONDS",
       "COMMAND" : ""
       }
