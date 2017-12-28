@@ -153,7 +153,8 @@ class ControllerHandler(socketserver.BaseRequestHandler):
             logger.info("PONG RECEIVED FROM: {0}".format(sender))
             self.server.set_client_connected(sender)
             # IF WE ARE ABLE TO AUTO START AND EVERYTHING IS CONNECTED
-            if self.server.get_start_auto() and self.server.all_connected:
+            if not self.server.started and self.server.get_start_auto() and self.server.all_connected:
+                logger.info("AUTO STARTING ALL CLIENTS")
                 self.server.start_all()
         else:
             logger.info(data.upper())
