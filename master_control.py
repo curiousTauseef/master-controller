@@ -259,8 +259,10 @@ class Controller(socketserver.UDPServer):
 
     def _determine_all_clients_connected(self):
         # LOOP THROUGH AND UPDATE THE ALL CONNECTED BOOLEAN TO SEE IF WE HAVE ALL CLIENTS
+        tlist = []
         for client in self.config["CLIENTS"]:
-            self.all_connected = client["CONNECTED"]
+            tlist.append(client["CONNECTED"])
+        self.all_connected = (not (False in tlist))
 
     def send_ping(self):
         # FUNCTION TO VERIFY CLIENT CONNECTION
