@@ -230,6 +230,7 @@ class Controller(socketserver.UDPServer):
     def reset(self):
         # FUNCTION TO RESET THE CLIENT FOR ANOTHER GO
         logger.info("RESET")
+        self.started = False
         self.done_with_tasks = False
         self.tasky = tasker.Tasker(self.config["TASKS"], debug=self.debug)
 
